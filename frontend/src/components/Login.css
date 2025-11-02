@@ -1,0 +1,91 @@
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
+}
+
+.login-card {
+  background: white;
+  border-radius: 15px;
+  padding: 3rem;
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.login-header h1 {
+  color: #667eea;
+  margin-bottom: 0.5rem;
+  font-size: 2rem;
+}
+
+.login-header p {
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.login-form {
+  margin-bottom: 2rem;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 0.8rem;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+.login-info {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.login-info h3 {
+  font-size: 0.9rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.login-info ul {
+  list-style: none;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.login-info li {
+  padding: 0.25rem 0;
+}
+
+.zero-trust-info {
+  background: #e8f4f8;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.zero-trust-info h4 {
+  font-size: 0.9rem;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.zero-trust-info ul {
+  list-style: none;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.zero-trust-info li {
+  padding: 0.25rem 0;
+}
+
