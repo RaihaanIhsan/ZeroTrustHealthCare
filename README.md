@@ -88,7 +88,7 @@ ztnew/
 - **Doctor**: `doctor1` / `doctor123`
 - **Nurse**: `nurse1` / `nurse123`
 
-## Zero Trust Implementation Details
+## Zero Trust + Context-Based Controls
 
 ### Authentication Flow
 1. User logs in with credentials
@@ -97,13 +97,18 @@ ztnew/
 4. Generates JWT token with session ID
 5. Token is required for all subsequent requests
 
-### Authorization Flow
+### Authorization & Context Flow
 1. Every request includes JWT token
 2. Middleware verifies token signature
 3. Checks if session is still active
 4. Verifies user role for endpoint access
-5. Applies resource-level permissions
-6. Logs all access attempts
+5. Evaluates context policies:
+   - Department match (doctor must match patient department)
+   - Nurse assignment (nurse must be assigned to patient)
+   - Device consistency (IP subnet and UA family)
+   - Time window (BUSINESS_HOURS env)
+6. Applies resource-level permissions
+7. Logs all access attempts
 
 ### Security Features
 - **Token Expiration**: Tokens expire after 24 hours
@@ -111,6 +116,14 @@ ztnew/
 - **Rate Limiting**: 100 requests per 15 minutes per IP
 - **CORS Protection**: Configured for specific origin
 - **Helmet Security**: HTTP headers protection
+ - **Context Enforcement**: Department, assignment, device, and time-based checks
+
+### Environment
+You can change business hours for context checks via:
+
+```
+BUSINESS_HOURS=08:00-18:00
+```
 
 ## Role Permissions
 

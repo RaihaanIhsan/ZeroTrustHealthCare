@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { checkRole, checkResourceAccess } = require('../middleware/zeroTrust');
+const { findPatientById } = require('../models/patient');
 
 // In-memory appointment store
 const appointments = [
@@ -102,10 +103,18 @@ router.post('/', checkRole('admin', 'doctor'), (req, res) => {
     });
   }
 
+  const targetPatient = findPatientById(patientId);
+  if (req.user.role === 'doctor' && targetPatient && targetPatient.department && req.user.department && targetPatient.department !== req.user.department) {
+    return res.status(403).json({
+      error: 'Department mismatch for patient',
+      zeroTrustAction: 'DEPARTMENT_CONTEXT_FAILED'
+    });
+  }
+
   const newAppointment = {
     id: (appointments.length + 1).toString(),
     patientId,
-    patientName: patientName || 'Unknown',
+    patientName: patientName || (targetPatient ? targetPatient.name : 'Unknown'),
     doctorId: doctorId || req.user.userId,
     doctorName: doctorName || 'Dr. Unknown',
     date,

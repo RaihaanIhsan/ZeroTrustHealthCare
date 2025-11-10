@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
 const { getSessionInfo, updateSessionActivity } = require('../models/session');
 const { recordAccessAttempt } = require('../models/metrics');
+const { isWithinBusinessHours, getDeviceFingerprint, isTrustedDevice } = require('../policies/context');
+const { findPatientById } = require('../models/patient');
+const bcrypt = require('bcrypt');
 
 // Zero Trust Principle: Never Trust, Always Verify
 const verifyToken = async (req, res, next) => {
@@ -18,7 +21,7 @@ const verifyToken = async (req, res, next) => {
     // Verify token signature
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'zero-trust-secret-key-change-in-production');
     
-    // Zero Trust: Verify session is still valid (not revoked)
+    // Zero Trust: Verify session is valid
     const sessionInfo = await getSessionInfo(decoded.sessionId);
     if (!sessionInfo || !sessionInfo.isActive) {
       recordAccessAttempt(req.ip, decoded.userId, 'DENIED', 'Session revoked or expired');
@@ -32,20 +35,100 @@ const verifyToken = async (req, res, next) => {
     req.user = {
       userId: decoded.userId,
       role: decoded.role,
+      department: decoded.department, //added for context-aware check
       sessionId: decoded.sessionId
     };
 
-    // Record successful verification
-    recordAccessAttempt(req.ip, decoded.userId, 'GRANTED', 'Token verified');
+    //Context-based Zero Trust checks
+    const currentDevice = getDeviceFingerprint(req);
+    const sessionDevice = sessionInfo.deviceInfo || {};
+    if (!isTrustedDevice(sessionDevice, currentDevice)) {
+      recordAccessAttempt(req.ip, req.user.userId, 'DENIED', 'Device context mismatch');
+      return res.status(401).json({
+        error: 'Access denied due to device context change.',
+        zeroTrustAction: 'DEVICE_CONTEXT_FAILED'
+      });
+    }
+
+    if (!isWithinBusinessHours()) {
+      recordAccessAttempt(req.ip, req.user.userId, 'DENIED', 'Outside business hours');
+      return res.status(403).json({
+        error: 'Access restricted outside business hours.',
+        zeroTrustAction: 'TIME_CONTEXT_FAILED'
+      });
+    }
+
+    // Optional: per-resource department/assignment checks
+//     if (req.path.startsWith('/api/patients/') && req.method !== 'GET') {
+//       const id = req.params.id;
+//       const patient = findPatientById(id);
+//       if (patient && req.user.role === 'doctor' && patient.department && req.user.department && patient.department !== req.user.department) {
+//         recordAccessAttempt(req.ip, req.user.userId, 'DENIED', 'Department mismatch');
+//         return res.status(403).json({
+//           error: 'Access denied. Department mismatch.',
+//           zeroTrustAction: 'DEPARTMENT_CONTEXT_FAILED'
+//         });
+//       }
+//     }
+
+//     // Record successful verification (after context checks)
+//     recordAccessAttempt(req.ip, decoded.userId, 'GRANTED', 'Token and context verified');
     
-    next();
-  } catch (error) {
-    recordAccessAttempt(req.ip, null, 'DENIED', `Token verification failed: ${error.message}`);
-    return res.status(401).json({ 
-      error: 'Access denied. Invalid token.',
-      zeroTrustAction: 'TOKEN_VERIFICATION_FAILED'
-    });
+//     next();
+//   } catch (error) {
+//     recordAccessAttempt(req.ip, null, 'DENIED', `Token verification failed: ${error.message}`);
+//     return res.status(401).json({ 
+//       error: 'Access denied. Invalid token.',
+//       zeroTrustAction: 'TOKEN_VERIFICATION_FAILED'
+//     });
+//   }
+// };
+
+// ---  Data/Relationship Context ---
+    // This check now runs if user is a 'doctor' AND accessing a specific patient
+    if (req.user.role === 'doctor' && 
+      req.params.id && 
+      req.baseUrl === '/api/patients') { 
+      
+      // Use your ACTUAL function here
+      const patient = await findPatientById(req.params.id); 
+
+      if (!patient) {
+          recordAccessAttempt(req.ip, req.user.userId, 'DENIED', 'Context check failed: Patient not found');
+          return res.status(404).json({ error: 'Patient not found' });
+      }
+
+      // Use the function from context.js
+      if (!isDepartmentAllowed(req.user.department, patient.department)) {
+          recordAccessAttempt(req.ip, req.user.userId, 'DENIED', `Context check failed: Dept mismatch.`);
+          return res.status(403).json({ 
+              error: 'Access denied. You do not have permission for this patient.',
+              zeroTrustAction: 'CONTEXT_VERIFICATION_FAILED'
+          });
+      }
   }
+  // --- END OF DATA CHECK ---
+
+  // --- 4. LAYER 3: PRIVACY SIMULATION (NEWLY ADDED) ---
+    // Simulating heavy cryptographic work (like ABE or ZKP).
+    // This is designed to be CPU-intensive and slow.
+    try {
+      await bcrypt.compare("dummy-data-to-hash", "$2a$10$abcdefghijklmnopqrstuv.w..");
+    } catch (e) {
+      // We don't care about the result, just the work
+    }
+
+    // Record successful verification (after context checks)
+    recordAccessAttempt(req.ip, decoded.userId, 'GRANTED', 'Token and context verified');
+    
+    next();
+  } catch (error) {
+    recordAccessAttempt(req.ip, null, 'DENIED', `Token verification failed: ${error.message}`);
+    return res.status(401).json({ 
+      error: 'Access denied. Invalid token.',
+        zeroTrustAction: 'TOKEN_VERIFICATION_FAILED'
+    });
+  }
 };
 
 // Zero Trust Principle: Continuous Verification
@@ -112,4 +195,5 @@ module.exports = {
   checkRole,
   checkResourceAccess
 };
+
 

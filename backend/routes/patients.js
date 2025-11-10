@@ -1,35 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { checkRole, checkResourceAccess } = require('../middleware/zeroTrust');
+const { listPatients, findPatientById, createPatient, updatePatientByIndex, deletePatientByIndex } = require('../models/patient');
 
-// In-memory patient store (in production, use a database)
-const patients = [
-  {
-    id: '1',
-    name: 'John Doe',
-    age: 45,
-    gender: 'Male',
-    medicalRecordNumber: 'MRN001',
-    bloodType: 'O+',
-    allergies: ['Penicillin'],
-    chronicConditions: ['Hypertension'],
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Jane Smith',
-    age: 32,
-    gender: 'Female',
-    medicalRecordNumber: 'MRN002',
-    bloodType: 'A-',
-    allergies: ['Latex'],
-    chronicConditions: ['Diabetes Type 2'],
-    createdAt: new Date().toISOString()
-  }
-];
+// Patients are stored in ../models/patient
 
 // Zero Trust: Get all patients (only doctors and admins)
 router.get('/', checkRole('doctor', 'admin'), checkResourceAccess, (req, res) => {
+  const patients = listPatients();
   res.json({
     patients,
     count: patients.length,
@@ -40,7 +18,7 @@ router.get('/', checkRole('doctor', 'admin'), checkResourceAccess, (req, res) =>
 
 // Zero Trust: Get patient by ID with role-based filtering
 router.get('/:id', checkRole('doctor', 'admin', 'nurse'), checkResourceAccess, (req, res) => {
-  const patient = patients.find(p => p.id === req.params.id);
+  const patient = findPatientById(req.params.id);
   
   if (!patient) {
     return res.status(404).json({ 
@@ -74,7 +52,7 @@ router.get('/:id', checkRole('doctor', 'admin', 'nurse'), checkResourceAccess, (
 
 // Zero Trust: Create patient (only admins and doctors)
 router.post('/', checkRole('admin', 'doctor'), (req, res) => {
-  const { name, age, gender, medicalRecordNumber, bloodType, allergies, chronicConditions } = req.body;
+  const { name, age, gender, medicalRecordNumber, bloodType, allergies, chronicConditions, department, assignedNurseIds } = req.body;
   
   if (!name || !age || !medicalRecordNumber) {
     return res.status(400).json({ 
@@ -83,6 +61,7 @@ router.post('/', checkRole('admin', 'doctor'), (req, res) => {
     });
   }
 
+  const patients = listPatients();
   const newPatient = {
     id: (patients.length + 1).toString(),
     name,
@@ -92,11 +71,12 @@ router.post('/', checkRole('admin', 'doctor'), (req, res) => {
     bloodType,
     allergies: allergies || [],
     chronicConditions: chronicConditions || [],
+    department: department || req.user.department || 'General',
+    assignedNurseIds: assignedNurseIds || [],
     createdAt: new Date().toISOString(),
     createdBy: req.user.userId
   };
-
-  patients.push(newPatient);
+  createPatient(newPatient);
 
   res.status(201).json({
     patient: newPatient,
@@ -108,6 +88,7 @@ router.post('/', checkRole('admin', 'doctor'), (req, res) => {
 
 // Zero Trust: Update patient (only doctors and admins)
 router.put('/:id', checkRole('admin', 'doctor'), checkResourceAccess, (req, res) => {
+  const patients = listPatients();
   const patientIndex = patients.findIndex(p => p.id === req.params.id);
   
   if (patientIndex === -1) {
@@ -124,7 +105,7 @@ router.put('/:id', checkRole('admin', 'doctor'), checkResourceAccess, (req, res)
     updatedBy: req.user.userId
   };
 
-  patients[patientIndex] = updatedPatient;
+  updatePatientByIndex(patientIndex, updatedPatient);
 
   res.json({
     patient: updatedPatient,
@@ -136,6 +117,7 @@ router.put('/:id', checkRole('admin', 'doctor'), checkResourceAccess, (req, res)
 
 // Zero Trust: Delete patient (only admins)
 router.delete('/:id', checkRole('admin'), checkResourceAccess, (req, res) => {
+  const patients = listPatients();
   const patientIndex = patients.findIndex(p => p.id === req.params.id);
   
   if (patientIndex === -1) {
@@ -145,7 +127,7 @@ router.delete('/:id', checkRole('admin'), checkResourceAccess, (req, res) => {
     });
   }
 
-  patients.splice(patientIndex, 1);
+  deletePatientByIndex(patientIndex);
 
   res.json({
     message: 'Patient deleted successfully',

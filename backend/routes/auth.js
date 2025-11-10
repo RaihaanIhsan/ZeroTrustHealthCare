@@ -55,6 +55,7 @@ router.post('/login', async (req, res) => {
         userId: user.id,
         username: user.username,
         role: user.role,
+        department: user.department,
         sessionId: session.sessionId
       },
       process.env.JWT_SECRET || 'zero-trust-secret-key-change-in-production',
