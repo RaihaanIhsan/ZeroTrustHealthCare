@@ -32,7 +32,10 @@ ztnew/
 │   ├── models/
 │   │   ├── user.js            # User management
 │   │   ├── session.js         # Session management
-│   │   └── metrics.js         # Security metrics
+│   │   └── metrics.js        # Security metrics
+|   |   |__ patients.js       #patient db
+│   ├── policies/
+│   │   ├── context.js
 │   ├── routes/
 │   │   ├── auth.js            # Authentication routes
 │   │   ├── patients.js        # Patient management routes
