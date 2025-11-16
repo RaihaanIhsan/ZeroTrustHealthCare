@@ -107,7 +107,7 @@ ztnew/
 4. Verifies user role for endpoint access
 5. Evaluates context policies:
    - Department match (doctor must match patient department)
-   - Nurse assignment (nurse must be assigned to patient)
+   - Nurse assignment (nurse must be assigned to department)
    - Device consistency (IP subnet and UA family)
    - Time window (BUSINESS_HOURS env)
 6. Applies resource-level permissions

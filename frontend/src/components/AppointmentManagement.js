@@ -11,6 +11,9 @@ const AppointmentManagement = ({ user }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Filtered patients list for the dropdown
+  const [availablePatients, setAvailablePatients] = useState([]);
+
   const [formData, setFormData] = useState({
     patientId: '',
     patientName: '',
@@ -24,16 +27,28 @@ const AppointmentManagement = ({ user }) => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [user]); // Refetch if user changes
 
   const fetchData = async () => {
     try {
       const [appointmentsData, patientsData] = await Promise.all([
         getAppointments(),
-        getPatients()
+        getPatients() // This will now correctly return only patients in the user's dept if not admin
       ]);
       setAppointments(appointmentsData.appointments || []);
-      setPatients(patientsData.patients || []);
+      setPatients(patientsData.patients || []); // This is the list of patients for the dropdown
+
+      // Set available patients for the form dropdown
+      if(user.role === 'admin') {
+        // Admin can see all patients from the raw getPatients() call
+        // Need to fetch *all* patients for admin dropdown
+        const allPatientsData = await getPatients(); // This is a bit inefficient, but works for demo
+        setAvailablePatients(allPatientsData.patients || []);
+      } else {
+        // Doctor/Nurse can only select from patients in their dept
+        setAvailablePatients(patientsData.patients || []);
+      }
+
       setError('');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to fetch data');
@@ -72,7 +87,7 @@ const AppointmentManagement = ({ user }) => {
       patientName: appointment.patientName || '',
       doctorId: appointment.doctorId || '',
       doctorName: appointment.doctorName || '',
-      date: appointment.date || '',
+      date: appointment.date ? new Date(appointment.date).toISOString().split('T')[0] : '', // Format date for input
       time: appointment.time || '',
       type: appointment.type || '',
       notes: appointment.notes || ''
@@ -140,7 +155,8 @@ const AppointmentManagement = ({ user }) => {
                   <select
                     value={formData.patientId}
                     onChange={(e) => {
-                      const patient = patients.find(p => p.id === e.target.value);
+                      // Find from the correct patient list
+                      const patient = (user.role === 'admin' ? availablePatients : patients).find(p => p.id === e.target.value);
                       setFormData({
                         ...formData,
                         patientId: e.target.value,
@@ -150,7 +166,8 @@ const AppointmentManagement = ({ user }) => {
                     required
                   >
                     <option value="">Select Patient</option>
-                    {patients.map(p => (
+                    {/* MODIFIED: Use the correct patient list for dropdown */}
+                    {(user.role === 'admin' ? availablePatients : patients).map(p => (
                       <option key={p.id} value={p.id}>{p.name} (MRN: {p.medicalRecordNumber})</option>
                     ))}
                   </select>
@@ -229,12 +246,13 @@ const AppointmentManagement = ({ user }) => {
       <div className="card">
         <h2>Appointments List</h2>
         {appointments.length === 0 ? (
-          <p>No appointments found.</p>
+          <p>No appointments found for your department.</p>
         ) : (
           <table className="table">
             <thead>
               <tr>
                 <th>Patient</th>
+                <th>Department</th> {/* ADDED */}
                 <th>Date</th>
                 <th>Time</th>
                 <th>Type</th>
@@ -248,7 +266,8 @@ const AppointmentManagement = ({ user }) => {
               {appointments.map((appointment) => (
                 <tr key={appointment.id}>
                   <td>{appointment.patientName}</td>
-                  <td>{appointment.date}</td>
+                  <td>{appointment.department}</td> {/* ADDED */}
+                  <td>{new Date(appointment.date).toLocaleDateString()}</td>
                   <td>{appointment.time}</td>
                   <td>{appointment.type}</td>
                   <td>
@@ -260,6 +279,7 @@ const AppointmentManagement = ({ user }) => {
                   {user.role !== 'nurse' && <td>{appointment.notes || 'N/A'}</td>}
                   <td>
                     <div className="action-buttons">
+                      {/* MODIFIED: View button logic is now handled by role */}
                       <button onClick={() => handleEdit(appointment)} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem' }}>
                         View
                       </button>
@@ -282,7 +302,7 @@ const AppointmentManagement = ({ user }) => {
         )}
         {user.role === 'nurse' && (
           <div className="alert alert-info">
-            <strong>Note:</strong> As a nurse, you have limited access to appointment information.
+            <strong>Note:</strong> As a nurse, you can only see appointments in your department and have limited access to information.
           </div>
         )}
       </div>
@@ -291,4 +311,3 @@ const AppointmentManagement = ({ user }) => {
 };
 
 export default AppointmentManagement;
-

@@ -114,7 +114,7 @@ const calculateSecurityScore = (deniedRate, failedAuths, totalAttempts) => {
   
   // Reduce score if denial rate is too high (might be too restrictive)
   if (deniedRate > 30) score -= 10;
-  if (deniedRate > 50) score -= 10;
+  // if (deniedRate > 50) score -= 10;
   
   // Increase score for detecting failed auths (good zero trust)
   const failureRate = totalAttempts > 0 ? (failedAuths / totalAttempts) * 100 : 0;

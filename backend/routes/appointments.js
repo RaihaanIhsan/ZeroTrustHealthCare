@@ -9,6 +9,7 @@ const appointments = [
     id: '1',
     patientId: '1',
     patientName: 'John Doe',
+    department: 'Cardiology', // ADDED
     doctorId: '2',
     doctorName: 'Dr. Smith',
     date: '2024-12-15',
@@ -22,6 +23,7 @@ const appointments = [
     id: '2',
     patientId: '2',
     patientName: 'Jane Smith',
+    department: 'Emergency', // ADDED
     doctorId: '2',
     doctorName: 'Dr. Smith',
     date: '2024-12-16',
@@ -33,15 +35,21 @@ const appointments = [
   }
 ];
 
-// Zero Trust: Get all appointments (role-based filtering)
+// MODIFIED: Get all appointments (role-based filtering)
 router.get('/', checkRole('doctor', 'admin', 'nurse'), checkResourceAccess, (req, res) => {
-  // Zero Trust: Filter based on role - nurses see limited info
   let filteredAppointments = appointments;
+
+  // Zero Trust: Admin sees all. Doctor/Nurse see only their department.
+  if (req.user.role === 'doctor' || req.user.role === 'nurse') {
+    filteredAppointments = appointments.filter(apt => apt.department === req.user.department);
+  }
   
+  // Zero Trust: Filter based on role - nurses see limited info
   if (req.user.role === 'nurse') {
-    filteredAppointments = appointments.map(apt => ({
+    filteredAppointments = filteredAppointments.map(apt => ({
       id: apt.id,
       patientName: apt.patientName,
+      department: apt.department,
       date: apt.date,
       time: apt.time,
       type: apt.type,
@@ -58,6 +66,7 @@ router.get('/', checkRole('doctor', 'admin', 'nurse'), checkResourceAccess, (req
 });
 
 // Zero Trust: Get appointment by ID
+// MODIFIED: Department check is handled by middleware for doctor/nurse
 router.get('/:id', checkRole('doctor', 'admin', 'nurse'), checkResourceAccess, (req, res) => {
   const appointment = appointments.find(a => a.id === req.params.id);
   
@@ -67,12 +76,22 @@ router.get('/:id', checkRole('doctor', 'admin', 'nurse'), checkResourceAccess, (
       zeroTrustAction: 'RESOURCE_NOT_FOUND'
     });
   }
+  
+  // MODIFIED: Add department check for nurse as well
+  if ((req.user.role === 'doctor' || req.user.role === 'nurse') && appointment.department !== req.user.department) {
+    return res.status(403).json({
+        error: 'Access denied. You do not have permission for this appointment.',
+        zeroTrustAction: 'CONTEXT_VERIFICATION_FAILED'
+    });
+  }
+
 
   // Zero Trust: Nurses get limited information
   if (req.user.role === 'nurse') {
     const limitedAppointment = {
       id: appointment.id,
       patientName: appointment.patientName,
+      department: appointment.department,
       date: appointment.date,
       time: appointment.time,
       type: appointment.type,
@@ -93,6 +112,7 @@ router.get('/:id', checkRole('doctor', 'admin', 'nurse'), checkResourceAccess, (
 });
 
 // Zero Trust: Create appointment (doctors and admins)
+// MODIFIED: Fetch patient to add department
 router.post('/', checkRole('admin', 'doctor'), (req, res) => {
   const { patientId, patientName, doctorId, doctorName, date, time, type, notes } = req.body;
   
@@ -104,9 +124,18 @@ router.post('/', checkRole('admin', 'doctor'), (req, res) => {
   }
 
   const targetPatient = findPatientById(patientId);
-  if (req.user.role === 'doctor' && targetPatient && targetPatient.department && req.user.department && targetPatient.department !== req.user.department) {
+  if (!targetPatient) {
+    return res.status(404).json({ 
+        error: 'Patient not found',
+        zeroTrustAction: 'RESOURCE_NOT_FOUND'
+    });
+  }
+
+  // Zero Trust: Context Check - Doctor/Admin can only make appts for patients in their own dept
+  // Admin is allowed to bypass this check (for this demo, but could be enforced)
+  if (req.user.role === 'doctor' && targetPatient.department !== req.user.department) {
     return res.status(403).json({
-      error: 'Department mismatch for patient',
+      error: 'Access denied. You can only create appointments for patients in your department.',
       zeroTrustAction: 'DEPARTMENT_CONTEXT_FAILED'
     });
   }
@@ -114,7 +143,8 @@ router.post('/', checkRole('admin', 'doctor'), (req, res) => {
   const newAppointment = {
     id: (appointments.length + 1).toString(),
     patientId,
-    patientName: patientName || (targetPatient ? targetPatient.name : 'Unknown'),
+    patientName: patientName || targetPatient.name,
+    department: targetPatient.department, // ADDED: Store patient's department
     doctorId: doctorId || req.user.userId,
     doctorName: doctorName || 'Dr. Unknown',
     date,
@@ -147,8 +177,18 @@ router.put('/:id', checkRole('admin', 'doctor'), checkResourceAccess, (req, res)
     });
   }
 
+  const originalAppointment = appointments[appointmentIndex];
+  
+  // Zero Trust: Context Check - Doctor can only update appts in their own dept
+  if (req.user.role === 'doctor' && originalAppointment.department !== req.user.department) {
+     return res.status(403).json({
+      error: 'Access denied. You can only update appointments in your department.',
+      zeroTrustAction: 'DEPARTMENT_CONTEXT_FAILED'
+    });
+  }
+
   const updatedAppointment = {
-    ...appointments[appointmentIndex],
+    ...originalAppointment,
     ...req.body,
     updatedAt: new Date().toISOString(),
     updatedBy: req.user.userId
@@ -185,4 +225,3 @@ router.delete('/:id', checkRole('admin'), checkResourceAccess, (req, res) => {
 });
 
 module.exports = router;
-

@@ -1,7 +1,9 @@
+// 
+
 const jwt = require('jsonwebtoken');
 const { getSessionInfo, updateSessionActivity } = require('../models/session');
 const { recordAccessAttempt } = require('../models/metrics');
-const { isWithinBusinessHours, getDeviceFingerprint, isTrustedDevice } = require('../policies/context');
+const { isWithinBusinessHours, getDeviceFingerprint, isTrustedDevice, isDepartmentAllowed } = require('../policies/context');
 const { findPatientById } = require('../models/patient');
 const bcrypt = require('bcrypt');
 
@@ -58,58 +60,43 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Optional: per-resource department/assignment checks
-//     if (req.path.startsWith('/api/patients/') && req.method !== 'GET') {
-//       const id = req.params.id;
-//       const patient = findPatientById(id);
-//       if (patient && req.user.role === 'doctor' && patient.department && req.user.department && patient.department !== req.user.department) {
-//         recordAccessAttempt(req.ip, req.user.userId, 'DENIED', 'Department mismatch');
-//         return res.status(403).json({
-//           error: 'Access denied. Department mismatch.',
-//           zeroTrustAction: 'DEPARTMENT_CONTEXT_FAILED'
-//         });
-//       }
-//     }
-
-//     // Record successful verification (after context checks)
-//     recordAccessAttempt(req.ip, decoded.userId, 'GRANTED', 'Token and context verified');
-    
-//     next();
-//   } catch (error) {
-//     recordAccessAttempt(req.ip, null, 'DENIED', `Token verification failed: ${error.message}`);
-//     return res.status(401).json({ 
-//       error: 'Access denied. Invalid token.',
-//       zeroTrustAction: 'TOKEN_VERIFICATION_FAILED'
-//     });
-//   }
-// };
-
-// ---  Data/Relationship Context ---
-    // This check now runs if user is a 'doctor' AND accessing a specific patient
-    if (req.user.role === 'doctor' && 
+    // ---  Data/Relationship Context ---
+    // MODIFIED: This check now runs if user is a 'doctor' OR 'nurse' AND accessing a specific patient
+    if ((req.user.role === 'doctor' || req.user.role === 'nurse') && 
       req.params.id && 
-      req.baseUrl === '/api/patients') { 
+      (req.baseUrl === '/api/patients' || req.baseUrl === '/api/appointments')) { // Also check for appointments
       
-      // Use your ACTUAL function here
-      const patient = await findPatientById(req.params.id); 
-
-      if (!patient) {
-          recordAccessAttempt(req.ip, req.user.userId, 'DENIED', 'Context check failed: Patient not found');
-          return res.status(404).json({ error: 'Patient not found' });
+      let patientDepartment;
+      
+      if (req.baseUrl === '/api/patients') {
+        const patient = await findPatientById(req.params.id);
+        if (!patient) {
+            recordAccessAttempt(req.ip, req.user.userId, 'DENIED', 'Context check failed: Patient not found');
+            return res.status(404).json({ error: 'Patient not found' });
+        }
+        patientDepartment = patient.department;
       }
-
-      // Use the function from context.js
-      if (!isDepartmentAllowed(req.user.department, patient.department)) {
-          recordAccessAttempt(req.ip, req.user.userId, 'DENIED', `Context check failed: Dept mismatch.`);
-          return res.status(403).json({ 
-              error: 'Access denied. You do not have permission for this patient.',
-              zeroTrustAction: 'CONTEXT_VERIFICATION_FAILED'
-          });
+      
+      // If we are checking an appointment, we need to find the patient from the appointment
+      // This logic is simplified here; ideally, appointment creation would store the department
+      if (req.baseUrl === '/api/appointments' && req.params.id) {
+          // This part is tricky as appointments model is not here.
+          // We will apply this check at the route level for appointments instead.
+          // For patient details, this check is correct.
+      } else if (patientDepartment) {
+         // Use the function from context.js
+        if (!isDepartmentAllowed(req.user.department, patientDepartment)) {
+            recordAccessAttempt(req.ip, req.user.userId, 'DENIED', `Context check failed: Dept mismatch.`);
+            return res.status(403).json({ 
+                error: 'Access denied. You do not have permission for this patient.',
+                zeroTrustAction: 'CONTEXT_VERIFICATION_FAILED'
+            });
+        }
       }
-  }
-  // --- END OF DATA CHECK ---
+    }
+    // --- END OF DATA CHECK ---
 
-  // --- 4. LAYER 3: PRIVACY SIMULATION (NEWLY ADDED) ---
+    // --- 4. LAYER 3: PRIVACY SIMULATION (NEWLY ADDED) ---
     // Simulating heavy cryptographic work (like ABE or ZKP).
     // This is designed to be CPU-intensive and slow.
     try {
@@ -118,17 +105,17 @@ const verifyToken = async (req, res, next) => {
       // We don't care about the result, just the work
     }
 
-    // Record successful verification (after context checks)
-    recordAccessAttempt(req.ip, decoded.userId, 'GRANTED', 'Token and context verified');
-    
-    next();
-  } catch (error) {
-    recordAccessAttempt(req.ip, null, 'DENIED', `Token verification failed: ${error.message}`);
-    return res.status(401).json({ 
-      error: 'Access denied. Invalid token.',
-        zeroTrustAction: 'TOKEN_VERIFICATION_FAILED'
-    });
-  }
+    // Record successful verification (after context checks)
+    recordAccessAttempt(req.ip, decoded.userId, 'GRANTED', 'Token and context verified');
+    
+    next();
+  } catch (error) {
+    recordAccessAttempt(req.ip, null, 'DENIED', `Token verification failed: ${error.message}`);
+    return res.status(401).json({ 
+      error: 'Access denied. Invalid token.',
+        zeroTrustAction: 'TOKEN_VERIFICATION_FAILED'
+    });
+  }
 };
 
 // Zero Trust Principle: Continuous Verification
@@ -195,5 +182,3 @@ module.exports = {
   checkRole,
   checkResourceAccess
 };
-
-

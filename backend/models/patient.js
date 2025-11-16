@@ -25,6 +25,32 @@ const patients = [
     department: 'Emergency',
     assignedNurseIds: ['3'],
     createdAt: new Date().toISOString()
+  },
+  {
+    id: '3',
+    name: 'Samantha Johnson',
+    age: 55,
+    gender: 'Female',
+    medicalRecordNumber: 'MRN003',
+    bloodType: 'B+',
+    allergies: ['Penicillin'],
+    chronicConditions: ['Hypertension'],
+    department: 'Cardiology',
+    assignedNurseIds: ['3'],
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: '4',
+    name: 'Jane Doe',
+    age: 32,
+    gender: 'Female',
+    medicalRecordNumber: 'MRN004',
+    bloodType: 'A-',
+    allergies: ['Latex'],
+    chronicConditions: ['Diabetes Type 2'],
+    department: 'Emergency',
+    assignedNurseIds: ['3'],
+    createdAt: new Date().toISOString()
   }
 ];
 

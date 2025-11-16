@@ -17,12 +17,13 @@ const PatientManagement = ({ user }) => {
     medicalRecordNumber: '',
     bloodType: '',
     allergies: '',
-    chronicConditions: ''
+    chronicConditions: '',
+    department: ''
   });
 
   useEffect(() => {
     fetchPatients();
-  }, []);
+  }, [user]);
 
   const fetchPatients = async () => {
     try {
@@ -44,6 +45,7 @@ const PatientManagement = ({ user }) => {
     try {
       const patientData = {
         ...formData,
+        age: parseInt(formData.age),
         allergies: formData.allergies.split(',').map(a => a.trim()).filter(a => a),
         chronicConditions: formData.chronicConditions.split(',').map(c => c.trim()).filter(c => c)
       };
@@ -74,7 +76,8 @@ const PatientManagement = ({ user }) => {
       medicalRecordNumber: patient.medicalRecordNumber || '',
       bloodType: patient.bloodType || '',
       allergies: (patient.allergies || []).join(', '),
-      chronicConditions: (patient.chronicConditions || []).join(', ')
+      chronicConditions: (patient.chronicConditions || []).join(', '),
+      department: patient.department || ''
     });
     setShowForm(true);
   };
@@ -101,7 +104,8 @@ const PatientManagement = ({ user }) => {
       medicalRecordNumber: '',
       bloodType: '',
       allergies: '',
-      chronicConditions: ''
+      chronicConditions: '',
+      department: ''
     });
   };
 
@@ -178,6 +182,22 @@ const PatientManagement = ({ user }) => {
               </div>
 
               <div className="form-row">
+              <div className="form-group">
+                  <label>Department *</label>
+                  <select
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    required
+                  >
+                    <option value="">Select Department</option>
+                    <option value="Administration">Administration</option>
+                    <option value="Cardiology">Cardiology</option>
+                    <option value="Emergency">Emergency</option>
+                    <option value="General">General</option>
+                    <option value="Neurology">Neurology</option>
+                    <option value="Pediatrics">Pediatrics</option>
+                  </select>
+                </div>
                 <div className="form-group">
                   <label>Blood Type</label>
                   <select
@@ -240,7 +260,8 @@ const PatientManagement = ({ user }) => {
               <tr>
                 <th>Name</th>
                 <th>Age</th>
-                <th>Medical Record #</th>
+                <th>Medical Record # </th>
+                <th>Department</th>
                 {user.role !== 'nurse' && <th>Blood Type</th>}
                 {user.role !== 'nurse' && <th>Allergies</th>}
                 <th>Actions</th>
@@ -252,6 +273,7 @@ const PatientManagement = ({ user }) => {
                   <td>{patient.name}</td>
                   <td>{patient.age}</td>
                   <td>{patient.medicalRecordNumber}</td>
+                  <td>{patient.department || 'N/A'}</td>
                   {user.role !== 'nurse' && <td>{patient.bloodType || 'N/A'}</td>}
                   {user.role !== 'nurse' && <td>{(patient.allergies || []).join(', ') || 'None'}</td>}
                   <td>
