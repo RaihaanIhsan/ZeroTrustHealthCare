@@ -8,7 +8,7 @@ const authRoutes = require('./routes/auth');
 const patientRoutes = require('./routes/patients');
 const appointmentRoutes = require('./routes/appointments');
 const metricsRoutes = require('./routes/metrics');
-const { verifyToken, continuousVerification } = require('./middleware/zeroTrust');
+const { verifyToken, continuousVerification, evaluateTrustScore } = require('./middleware/zeroTrust');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,10 +39,10 @@ app.get('/health', (req, res) => {
 // Authentication routes (public)
 app.use('/api/auth', authRoutes);
 
-// Protected routes - Zero Trust: Verify before access
-app.use('/api/patients', verifyToken, patientRoutes);
-app.use('/api/appointments', verifyToken, appointmentRoutes);
-app.use('/api/metrics', verifyToken, metricsRoutes);
+// Protected routes - Zero Trust: Verify + Trust Score Evaluation
+app.use('/api/patients', verifyToken, evaluateTrustScore, patientRoutes);
+app.use('/api/appointments', verifyToken, evaluateTrustScore, appointmentRoutes);
+app.use('/api/metrics', verifyToken, evaluateTrustScore, metricsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

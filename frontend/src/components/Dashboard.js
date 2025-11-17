@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getPatients, getAppointments } from '../services/api';
+import TrustScoreWidget from './TrustScoreWidget';
 import './Dashboard.css';
 
 const Dashboard = ({ user }) => {
@@ -45,6 +46,7 @@ const Dashboard = ({ user }) => {
   return (
     <div className="dashboard">
       <h1>Dashboard</h1>
+      <TrustScoreWidget user={user} />
       
       <div className="stats-grid">
         <div className="stat-card">

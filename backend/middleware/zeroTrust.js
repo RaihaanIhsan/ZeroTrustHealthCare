@@ -6,7 +6,7 @@ const { recordAccessAttempt } = require('../models/metrics');
 const { isWithinBusinessHours, getDeviceFingerprint, isTrustedDevice, isDepartmentAllowed } = require('../policies/context');
 const { findPatientById } = require('../models/patient');
 const bcrypt = require('bcrypt');
-
+const { calculateTrustScore, explainTrustScore } = require('../models/trustScore');
 // Zero Trust Principle: Never Trust, Always Verify
 const verifyToken = async (req, res, next) => {
   try {
@@ -118,6 +118,113 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
+const evaluateTrustScore = async (req, res, next) => {
+  // Skip trust evaluation for public endpoints
+  if (req.path.includes('/auth/login') || req.path.includes('/health')) {
+    return next();
+  }
+
+  // Skip if no user (will be caught by verifyToken)
+  if (!req.user) {
+    return next();
+  }
+
+  try {
+    // Gather context for trust calculation
+    const trustParams = {
+      userId: req.user.userId,
+      sessionId: req.user.sessionId,
+      role: req.user.role,
+      department: req.user.department,
+      currentDevice: {
+        ip: req.ip,
+        userAgent: req.get('user-agent') || 'unknown'
+      },
+      endpoint: req.path,
+      timestamp: new Date()
+    };
+
+    // Calculate trust score
+    const trustResult = await calculateTrustScore(trustParams);
+
+    // Attach trust score to request for logging/debugging
+    req.trustScore = trustResult;
+
+    // Enforce trust-based access control
+    switch (trustResult.action) {
+      case 'ALLOW':
+        // Normal flow - continue
+        recordAccessAttempt(
+          req.ip, 
+          req.user.userId, 
+          'GRANTED', 
+          `Trust score: ${trustResult.trustScore} - ${trustResult.reason}`
+        );
+        next();
+        break;
+
+      case 'CHALLENGE':
+        // Require re-authentication
+        recordAccessAttempt(
+          req.ip, 
+          req.user.userId, 
+          'DENIED', 
+          `Trust challenge required: ${trustResult.trustScore} - ${trustResult.reason}`
+        );
+        
+        return res.status(403).json({
+          error: 'Additional verification required',
+          zeroTrustAction: 'TRUST_CHALLENGE_REQUIRED',
+          trustScore: trustResult.trustScore,
+          message: 'Your trust score requires re-authentication. Please log in again.',
+          requiresReauth: true
+        });
+
+      case 'DENY':
+        // Block request
+        recordAccessAttempt(
+          req.ip, 
+          req.user.userId, 
+          'DENIED', 
+          `Trust score too low: ${trustResult.trustScore} - ${trustResult.reason}`
+        );
+        
+        return res.status(403).json({
+          error: 'Access denied due to trust score',
+          zeroTrustAction: 'TRUST_SCORE_DENIED',
+          trustScore: trustResult.trustScore,
+          message: 'Your trust score is too low. Please contact support or try again later.'
+        });
+
+      default:
+        // Unknown action - fail secure
+        recordAccessAttempt(
+          req.ip, 
+          req.user.userId, 
+          'DENIED', 
+          `Unknown trust action: ${trustResult.action}`
+        );
+        
+        return res.status(500).json({
+          error: 'Trust evaluation error',
+          zeroTrustAction: 'TRUST_EVALUATION_ERROR'
+        });
+    }
+  } catch (error) {
+    console.error('Trust score evaluation error:', error);
+    
+    // Fail-open for non-critical errors (optional: change to fail-closed)
+    // In production, consider failing closed (blocking request) for security
+    recordAccessAttempt(
+      req.ip, 
+      req.user?.userId, 
+      'GRANTED', 
+      `Trust evaluation failed, allowing by default: ${error.message}`
+    );
+    next();
+  }
+};
+
 // Zero Trust Principle: Continuous Verification
 const continuousVerification = async (req, res, next) => {
   // Log all access attempts for continuous monitoring
@@ -180,5 +287,6 @@ module.exports = {
   verifyToken,
   continuousVerification,
   checkRole,
-  checkResourceAccess
+  checkResourceAccess,
+  evaluateTrustScore
 };
