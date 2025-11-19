@@ -34,6 +34,14 @@ const users = [
     password: 'nurse1234', // Will be hashed on initialization
     role: 'nurse',
     department: 'Cardiology'
+  },
+  {
+    id: '5',
+    username: 'doctor2',
+    email: 'doctor2@hospital.com',
+    password: 'doctorabc', // Will be hashed on initialization
+    role: 'doctor',
+    department: 'Emergency'
   }
 ];
 

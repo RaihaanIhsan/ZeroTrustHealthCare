@@ -1,5 +1,5 @@
 // Trust Score Engine for Zero Trust Healthcare System
-// Calculates dynamic trust scores based on available project features
+// Calculates dynamic trust scores 
 
 const { getSessionInfo } = require('./session');
 const { accessAttempts, authenticationEvents } = require('./metrics');
