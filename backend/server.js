@@ -9,6 +9,7 @@ const patientRoutes = require('./routes/patients');
 const appointmentRoutes = require('./routes/appointments');
 const metricsRoutes = require('./routes/metrics');
 const { verifyToken, continuousVerification, evaluateTrustScore } = require('./middleware/zeroTrust');
+const { trackPerformance } = require('./middleware/performanceTracking');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,9 +41,9 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 
 // Protected routes - Zero Trust: Verify + Trust Score Evaluation
-app.use('/api/patients', verifyToken, evaluateTrustScore, patientRoutes);
-app.use('/api/appointments', verifyToken, evaluateTrustScore, appointmentRoutes);
-app.use('/api/metrics', verifyToken, evaluateTrustScore, metricsRoutes);
+app.use('/api/patients', trackPerformance('privacyPreserving'), verifyToken, evaluateTrustScore, patientRoutes);
+app.use('/api/appointments', trackPerformance('standard'), verifyToken, evaluateTrustScore, appointmentRoutes);
+app.use('/api/metrics', trackPerformance('standard'), verifyToken, evaluateTrustScore, metricsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

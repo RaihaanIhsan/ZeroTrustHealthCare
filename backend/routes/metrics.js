@@ -3,14 +3,26 @@ const router = express.Router();
 const { checkRole } = require('../middleware/zeroTrust');
 const { getZeroTrustMetrics } = require('../models/metrics');
 const { calculateTrustScore, explainTrustScore } = require('../models/trustScore');
+const { privatizeMetrics } = require('../models/differentialPrivacy');
+const { getPrivacyMetrics } = require('../models/privacy');
+const { getHEMetrics } = require('../models/homomorphic');
+const { generatePerformanceReport } = require('../models/performanceMeasurement');
+
+const ENABLE_DP = process.env.ENABLE_DIFFERENTIAL_PRIVACY === 'true';
 
 // Zero Trust: Get metrics (only admins)
 router.get('/', checkRole('admin'), (req, res) => {
   try {
-    const metrics = getZeroTrustMetrics();
+    let metrics = getZeroTrustMetrics();
+    
+    // Apply differential privacy if enabled
+    if (ENABLE_DP) {
+      metrics = privatizeMetrics(metrics);
+    }
     
     res.json({
       metrics,
+      privacyMetrics: getPrivacyMetrics(),
       message: 'Zero Trust metrics retrieved successfully',
       zeroTrustAction: 'METRICS_ACCESS_GRANTED'
     });
@@ -55,6 +67,28 @@ router.get('/trust-score', async (req, res) => {
       error: 'Failed to calculate trust score',
       message: error.message
     });
+  }
+});
+
+// NEW: Performance comparison endpoint
+router.get('/performance', checkRole('admin'), (req, res) => {
+  try {
+    const report = generatePerformanceReport();
+    res.json(report);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate performance report' });
+  }
+});
+
+// NEW: Privacy-specific metrics
+router.get('/privacy', checkRole('admin'), (req, res) => {
+  try {
+    res.json({
+      fieldEncryption: getPrivacyMetrics(),
+      homomorphicEncryption: getHEMetrics()
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get privacy metrics' });
   }
 });
 
