@@ -3,6 +3,9 @@
 
 const { getSessionInfo } = require('./session');
 const { accessAttempts, authenticationEvents } = require('./metrics');
+const { calculateEncryptedTrustScore } = require('./homomorphic');
+
+const ENABLE_HE = process.env.ENABLE_HOMOMORPHIC_ENCRYPTION === 'true';
 
 // Trust score thresholds
 const THRESHOLDS = {
@@ -55,15 +58,34 @@ async function calculateTrustScore(params) {
   const contextCompliance = calculateContextCompliance(role, department, timestamp);
   const roleRisk = calculateRoleRisk(role);
 
-  // Weighted trust score calculation
-  const trustScore = Math.round(
-    sessionHealth * WEIGHTS.SESSION_HEALTH +
-    authTrackRecord * WEIGHTS.AUTH_TRACK_RECORD +
-    deviceConsistency * WEIGHTS.DEVICE_CONSISTENCY +
-    accessPattern * WEIGHTS.ACCESS_PATTERN +
-    contextCompliance * WEIGHTS.CONTEXT_COMPLIANCE +
-    roleRisk * WEIGHTS.ROLE_RISK
-  );
+  const factors = {
+    sessionHealth: Math.round(sessionHealth),
+    authTrackRecord: Math.round(authTrackRecord),
+    deviceConsistency: Math.round(deviceConsistency),
+    accessPattern: Math.round(accessPattern),
+    contextCompliance: Math.round(contextCompliance),
+    roleRisk: Math.round(roleRisk)
+  };
+
+  let trustScore;
+  let computationMethod = 'standard';
+
+  if (ENABLE_HE) {
+    // Calculate using homomorphic encryption
+    const heResult = await calculateEncryptedTrustScore(factors);
+    trustScore = heResult.trustScore;
+    computationMethod = 'homomorphic';
+  } else {
+    // Standard weighted trust score calculation
+    trustScore = Math.round(
+      sessionHealth * WEIGHTS.SESSION_HEALTH +
+      authTrackRecord * WEIGHTS.AUTH_TRACK_RECORD +
+      deviceConsistency * WEIGHTS.DEVICE_CONSISTENCY +
+      accessPattern * WEIGHTS.ACCESS_PATTERN +
+      contextCompliance * WEIGHTS.CONTEXT_COMPLIANCE +
+      roleRisk * WEIGHTS.ROLE_RISK
+    );
+  }
 
   // Determine action based on threshold
   let action = 'DENY';
@@ -81,14 +103,8 @@ async function calculateTrustScore(params) {
     trustScore,
     action,
     reason,
-    factors: {
-      sessionHealth: Math.round(sessionHealth),
-      authTrackRecord: Math.round(authTrackRecord),
-      deviceConsistency: Math.round(deviceConsistency),
-      accessPattern: Math.round(accessPattern),
-      contextCompliance: Math.round(contextCompliance),
-      roleRisk: Math.round(roleRisk)
-    },
+    factors,
+    computationMethod,
     timestamp: timestamp.getTime(),
     userId
   };

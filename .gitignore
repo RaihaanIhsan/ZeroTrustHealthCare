@@ -1,6 +1,9 @@
 node_modules/
 .env
 .env.local
+.env.*
+backend/.env
+backend/.env.*
 .DS_Store
 *.log
 dist/
@@ -8,4 +11,7 @@ build/
 coverage/
 .idea/
 .vscode/
+*.csv
+benchmark_*.json
+benchmark_*.csv
 

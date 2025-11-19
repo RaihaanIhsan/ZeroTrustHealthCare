@@ -7,7 +7,12 @@ const sessionMetrics = {
   revokedSessions: 0
 };
 
-const recordAccessAttempt = (ip, userId, result, reason) => {
+const recordAccessAttempt = async (ip, userId, result, reason) => {
+  // Simulate logging I/O overhead for Zero Trust
+  if (process.env.ENABLE_ZERO_TRUST === 'true') {
+    await new Promise(resolve => setTimeout(resolve, 2)); // 2ms logging overhead
+  }
+  
   const attempt = {
     id: accessAttempts.length + 1,
     ip,

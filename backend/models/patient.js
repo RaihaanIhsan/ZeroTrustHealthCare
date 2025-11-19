@@ -1,3 +1,7 @@
+const { encryptPatient, decryptPatient, encryptPatients, decryptPatients } = require('./privacy');
+
+const ENABLE_ENCRYPTION = process.env.ENABLE_FIELD_ENCRYPTION === 'true';
+
 // In-memory patient store (in production, use a database)
 const patients = [
   {
@@ -55,21 +59,32 @@ const patients = [
 ];
 
 function listPatients() {
+  if (ENABLE_ENCRYPTION) {
+    return decryptPatients(patients); // Decrypt before returning
+  }
   return patients;
 }
 
 function findPatientById(id) {
-  return patients.find(p => p.id === id) || null;
-}
-
-function createPatient(patient) {
-  patients.push(patient);
+  const patient = patients.find(p => p.id === id);
+  if (!patient) return null;
+  
+  if (ENABLE_ENCRYPTION && patient.encrypted) {
+    return decryptPatient(patient);
+  }
   return patient;
 }
 
+function createPatient(patient) {
+  const patientToStore = ENABLE_ENCRYPTION ? encryptPatient(patient) : patient;
+  patients.push(patientToStore);
+  return patient; // Return unencrypted to caller
+}
+
 function updatePatientByIndex(index, updated) {
-  patients[index] = updated;
-  return updated;
+  const patientToStore = ENABLE_ENCRYPTION ? encryptPatient(updated) : updated;
+  patients[index] = patientToStore;
+  return updated; // Return unencrypted to caller
 }
 
 function deletePatientByIndex(index) {

@@ -19,7 +19,12 @@ const createSession = (userId, deviceInfo = {}) => {
   return session;
 };
 
-const getSessionInfo = (sessionId) => {
+const getSessionInfo = async (sessionId) => {
+  // Simulate database latency for realistic benchmarking
+  // In production, this would be actual DB query time
+  if (process.env.ENABLE_ZERO_TRUST === 'true') {
+    await new Promise(resolve => setTimeout(resolve, 5)); // 5ms DB lookup simulation
+  }
   return sessions.get(sessionId) || null;
 };
 

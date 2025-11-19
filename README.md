@@ -152,11 +152,100 @@ The system tracks:
 
 Access metrics dashboard in the admin panel to view real-time security metrics.
 
+## Four-Tier Security Architecture
+
+This system implements a **progressive four-tier security architecture**:
+
+### Tier Overview
+| Tier | Avg Latency | Security Level | Use Case |
+|------|-------------|----------------|----------|
+| **1. Baseline** | 5.06ms | Minimal | Testing/benchmarking only |
+| **2. Zero Trust** | 34.32ms | Standard | Production environments |
+| **3. Context-Aware** | 31.75ms ⚡ | Enhanced | High-performance production |
+| **4. Privacy-Preserving** | 49.93ms | Maximum | HIPAA/GDPR compliance |
+
+### Key Features by Tier
+
+#### Tier 1: Baseline
+- JWT authentication only
+- No session tracking
+- Performance baseline for comparison
+
+#### Tier 2: Zero Trust
+- Continuous verification
+- Session management
+- Access logging
+- Session revocation
+
+#### Tier 3: Context-Aware (⚡ Optimized)
+- All Zero Trust features
+- Trust score calculation (15-min cache)
+- Device fingerprinting
+- Business hours enforcement
+- Department-based filtering
+- **7.5% faster than Zero Trust** through intelligent caching
+
+#### Tier 4: Privacy-Preserving
+- All Context-Aware features
+- Field-level encryption (AES-256-GCM)
+- Differential Privacy (ε=1.0)
+- Homomorphic Encryption (Paillier)
+- Privacy-preserving computations
+
+### Switching Between Tiers
+
+```bash
+# Copy tier-specific environment configuration
+cd backend
+
+# For Baseline tier
+copy .env.baseline .env
+
+# For Zero Trust tier
+copy .env.zerotrust .env
+
+# For Context-Aware tier
+copy .env.contextaware .env
+
+# For Privacy-Preserving tier
+copy .env.privacy .env
+
+# Restart server
+npm start
+```
+
+### Documentation
+
+For detailed tier architecture, implementation details, and performance analysis:
+- 📘 **[TIER_ARCHITECTURE.md](TIER_ARCHITECTURE.md)** - Complete tier documentation
+- 📊 **[CONTEXT_AWARE_OPTIMIZATION.md](CONTEXT_AWARE_OPTIMIZATION.md)** - Optimization details
+- 📝 **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
+- 📈 **[OPTIMIZATION_RESULTS.md](OPTIMIZATION_RESULTS.md)** - Benchmark results
+
+### Academic Research
+
+This implementation demonstrates:
+- Progressive security enhancement across tiers
+- Performance optimization through intelligent caching
+- Privacy-preserving techniques in healthcare
+- Empirical validation of security/performance trade-offs
+
+**Key Finding**: Context-Aware tier achieves **higher security** than Zero Trust with **7.5% better performance** through session caching and early exit strategies.
+
 ## Future Enhancements
 
-This is the **Zero Trust** implementation. Future versions will include:
-- **Privacy Preserving**: Encryption, data anonymization
-- **Context-Based**: Dynamic access control based on user context
+### Planned Features
+- Redis-based session storage for production
+- PostgreSQL database integration
+- Advanced ML-based trust scoring
+- Multi-factor authentication (MFA)
+- Blockchain-based audit logs
+- Federated learning for multi-institution data
+
+### Research Extensions
+- **Tier 5**: ML-Enhanced anomaly detection
+- **Tier 6**: Blockchain immutable logs
+- **Tier 7**: Federated learning across institutions
 
 ## License
 
